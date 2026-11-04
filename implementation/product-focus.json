@@ -17,6 +17,7 @@
     "B14",
     "B15"
   ],
-  "authority": "../05_Shared_Baseline/implementation-plan.json",
-  "note": "Organizational focus only. Original dependencies and release gates unchanged; cross-product qualification tickets must not be silently marked complete for a single product."
+  "authority": "implementation-plan.json",
+  "note": "Organizational focus only. Original dependencies and release gates unchanged; cross-product qualification tickets must not be silently marked complete for a single product.",
+  "authority_note": "Local reviewed plan (implementation/implementation-plan.json). The previous value pointed at the archived reference/05_Shared_Baseline copy, which is provenance only."
 }

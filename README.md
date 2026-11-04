@@ -4,6 +4,33 @@
 
 ---
 
+## ▶️ Run it (implementation state)
+
+The product slice is implemented and runs on a disposable local stack:
+
+```bash
+python -m venv .venv && .venv/bin/pip install -r requirements.txt
+python scripts/dev_db.py                    # PostgreSQL 16 + migrations + synthetic seed
+# then API, worker and UI as described in docs/SKB_Operations.md §2
+
+.venv/bin/python -m pytest -q               # real-PostgreSQL suite
+cd apps/web && npm run typecheck && npm run build
+```
+
+- Architecture and file ownership: [`docs/Repository_Map.md`](docs/Repository_Map.md)
+- Startup, seeding, migrations, deployment, backup/restore, locks and limitations:
+  [`docs/SKB_Operations.md`](docs/SKB_Operations.md)
+- What is verified, and what is still pending: [`evidence/tickets/`](evidence/tickets/)
+  and [`evidence/PROGRESS.md`](evidence/PROGRESS.md)
+
+**Scope guarantee:** uploaded skill packages are never extracted or executed, and no
+model is called. Experiments replay recorded synthetic trials from
+`fixtures/paired_trials.json`; the analysis is descriptive and makes no efficacy,
+equivalence or safety claim. `production_ready` remains **false** until independent
+reviews are complete.
+
+---
+
 ## 🎯 Repository Status & Purpose
 
 This repository is an **independent, self-contained, build-agent-ready project** for **SkillBench**.

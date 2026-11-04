@@ -1,5 +1,4 @@
 {
-  "product": "SkillBench",
   "baseline_version": "0.2.0",
   "files": {
     "contracts/README.md": "7f2a46b6ec2d54844b60e8f7a4121811b1beb26bcd09b2f82f9bbd1892983a33",
@@ -76,6 +75,9 @@
     "contracts/schemas/UploadFinalize.json": "5865995fe6b206f6c32ca9835cbcd3d9efd40dd17a513f2982a9463e35bc10ec",
     "contracts/ui-workflows.yaml": "6b530caded1b72308e1c8785a6f1d573db9f41514cabac93e8b063aeca0e969f",
     "contracts/upstream-source-lock.json": "112ce6d1555568e758f0b928e318dcdbefe6daff81f6e2acb6fd6dcec4f1a596",
+    "database/lease_queries.sql": "e141212070f52a3720038cdccdee1bd07f3d4b0945fbf0051ba1c597b58425a3",
+    "database/migrations/001_baseline.sql": "f2a13e827be2f02331907702ac499d529ad1639f4583c3be10e87095123cad64",
+    "database/migrations/002_roles.sql": "7d219680664d489c55cc059a7931a95f92f34ec872d6d9bdb4d19bdf4b9d4886",
     "docs/01_Product_Specification.md": "f0eebc20bbdff172cfc8cb00a25f6e5a980c286aa3de44bef06f6d77f6d7ebbf",
     "docs/02_Shared_Foundation.md": "e047ed24bc7e62a5a26efa1fa0d2ecfe0b19d1fe9473bf77b4a080b2d28b9e3d",
     "docs/03_Comparative_Analysis.md": "d6c640b0da64b0c6ac6b0df3ef2d787737d9d2515f65d5c7a8c511471061e230",
@@ -84,16 +86,13 @@
     "docs/06_Protocol_and_Transactions.md": "089abebc61e913f4ea290449e62c87a07a3cca59ebecc3fd212599586c35a0ab",
     "docs/07_Deployment_and_Operations.md": "fad44542f0fb5a00c3f3c084c513f9db2ef745d551a3c9f17bb93dd7b765ea72",
     "docs/08_Acceptance_and_Queue.md": "56ddd38acd1d4f21e0d364e1daacdf280bf5855ce7d578acd9ee2905fa93a2f2",
-    "database/lease_queries.sql": "e141212070f52a3720038cdccdee1bd07f3d4b0945fbf0051ba1c597b58425a3",
-    "database/migrations/001_baseline.sql": "49d6c15c9fe655ce922041a1c4b5b61ae9bf2d7ba32636c808de2949240d782c",
-    "database/migrations/002_roles.sql": "90385fc0a91d3d7f1b94be65c0547de1f2d84768b7e5677f8f4f38bbd40f9bf7",
+    "fixtures/document-evidence.json": "d517929aa785349376eef381d8ea49e48bee4b1441a0551c003b09087d05bcd3",
+    "fixtures/paired_trials.json": "ec8c72cd5bbebed3795f730fff9d66490c8c7fdd7cc62f530c3bbc770ad5a79c",
+    "fixtures/synthetic-report.pdf": "ec14a14dcd0afc635c34446c6b4e4374dcb8f24866872c4523baf078e6c40a4a",
     "infra/Caddyfile": "edcc742175e1ce9e01ed048c12abb94707ac471edda42322fd74ecf19c36c311",
     "infra/compose.yaml": "794de355b239dc038f9bd3554ad77029e46e09c227be74d14bb9b3e52647c185",
     "infra/runtime-policy.yaml": "a600469de6724d3db79ff62d412065d6bd243dbe17a411a602d961a372b929b6",
     "infra/upstream-image-lock.json": "a10b561401caccdf9d71997c88b3757d9745b5f4fc7a8639c31d5eb200064f54",
-    "fixtures/document-evidence.json": "d517929aa785349376eef381d8ea49e48bee4b1441a0551c003b09087d05bcd3",
-    "fixtures/paired_trials.json": "ec8c72cd5bbebed3795f730fff9d66490c8c7fdd7cc62f530c3bbc770ad5a79c",
-    "fixtures/synthetic-report.pdf": "ec14a14dcd0afc635c34446c6b4e4374dcb8f24866872c4523baf078e6c40a4a",
     "reference/05_Shared_Baseline/.github/workflows/baseline.yml": "5a880eb868187cf20ea8375b2c7521764457c8b637394eb2fe4538c2a8458ff6",
     "reference/05_Shared_Baseline/AGENTS.md": "b0ad55cdb72f29103bf19efea956f1480112227636e2f5f8b20138f6bc0c6ed2",
     "reference/05_Shared_Baseline/Makefile": "280775df8a9bad24c82a30f91a0c949b541c3afb271f68c73b00a77680aa35de",
@@ -309,5 +308,6 @@
     "scripts/product_smoke.py": "266f71f82bbee1b508fcca96725bd95b51ac32b2fbeba4e6495dfc570092bdde",
     "scripts/release_gate.py": "6b895a394038c4455ecf5e0d958deba4bd06dfe555c6fa68fbe5c54b955484f3",
     "scripts/verify_manifest.py": "3cdf9241554fd61b57601d57dc8477c8d5aac7be5b88011e1201ad80e55f7509"
-  }
+  },
+  "product": "SkillBench"
 }
