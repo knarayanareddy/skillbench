@@ -1,14 +1,17 @@
-"""API routes for SkillBench (SKB)."""
+"""API routes for SkillBench (SKB) - Fail-Closed Baseline."""
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, Depends, status, Path as PathParam
+from fastapi import APIRouter, Depends, status, Path as PathParam, HTTPException
 from pydantic import BaseModel
-from src.api.deps import require_role, verify_idempotency_key
+from src.api.deps import require_project_role, verify_idempotency_key
+from src.core.security import UserContext
 
 router = APIRouter()
 
 class PackageCreate(BaseModel):
     artifact_id: str
-    execution_profile: str = "sandbox/1"
+    name: str
+    source_commit: Optional[str] = None
+    license_expression: Optional[str] = None
 
 class Package(BaseModel):
     id: str
@@ -16,13 +19,13 @@ class Package(BaseModel):
     artifact_id: str
     sha256: str
     state: str
-    execution_profile: str
-    revision: int
+    execution_profile: str = "fixture_only"
+    revision: int = 1
 
 class PlanCreate(BaseModel):
     package_id: str
     suite_id: str
-    definition: Dict[str, Any]
+    tasks: List[Dict[str, Any]] = []
 
 class Plan(BaseModel):
     id: str
@@ -31,7 +34,7 @@ class Plan(BaseModel):
     suite_id: str
     sha256: str
     state: str
-    definition: Dict[str, Any]
+    revision: int = 1
 
 class ExperimentCreate(BaseModel):
     plan_id: str
@@ -53,165 +56,135 @@ class Analysis(BaseModel):
 async def skb_create_package(
     project_id: str = PathParam(...),
     body: PackageCreate = ...,
-    role: str = Depends(require_role("analyst")),
+    user: UserContext = Depends(require_project_role("analyst")),
     idemp: str = Depends(verify_idempotency_key)
 ):
-    """Register an uploaded skill archive package."""
-    import uuid
-    return Package(
-        id=str(uuid.uuid4()),
-        project_id=project_id,
-        artifact_id=body.artifact_id,
-        sha256="0"*64,
-        state="pending",
-        execution_profile=body.execution_profile,
-        revision=1
-    )
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Package intake unconfigured in B00 baseline.")
 
 @router.get("/projects/{project_id}/skb/packages", response_model=List[Package], status_code=status.HTTP_200_OK)
-async def skb_list_packages(project_id: str = PathParam(...), role: str = Depends(require_role("analyst"))):
+async def skb_list_packages(
+    project_id: str = PathParam(...),
+    user: UserContext = Depends(require_project_role("analyst"))
+):
     return []
 
 @router.get("/skb/packages/{package_id}", response_model=Package, status_code=status.HTTP_200_OK)
-async def skb_get_package(package_id: str = PathParam(...), role: str = Depends(require_role("analyst"))):
-    return Package(
-        id=package_id,
-        project_id="00000000-0000-4000-8000-000000000001",
-        artifact_id="00000000-0000-4000-8000-000000000002",
-        sha256="0"*64,
-        state="ready",
-        execution_profile="sandbox/1",
-        revision=1
-    )
+async def skb_get_package(
+    package_id: str = PathParam(...),
+    user: UserContext = Depends(require_project_role("analyst"))
+):
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Package not found")
 
 @router.post("/skb/packages/{package_id}:inspect", status_code=status.HTTP_200_OK)
 async def skb_inspect_package(
     package_id: str = PathParam(...),
-    role: str = Depends(require_role("operator")),
+    user: UserContext = Depends(require_project_role("operator")),
     idemp: str = Depends(verify_idempotency_key)
 ):
-    return {"package_id": package_id, "state": "inspected"}
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Package inspection unconfigured in B00 baseline.")
 
 @router.post("/skb/packages/{package_id}/reviews", status_code=status.HTTP_201_CREATED)
 async def skb_review_package(
     package_id: str = PathParam(...),
-    role: str = Depends(require_role("maintainer")),
+    user: UserContext = Depends(require_project_role("maintainer")),
     idemp: str = Depends(verify_idempotency_key)
 ):
-    return {"package_id": package_id, "verdict": "approved"}
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Package review unconfigured in B00 baseline.")
 
 @router.post("/projects/{project_id}/skb/suites", status_code=status.HTTP_201_CREATED)
 async def skb_create_suite(
     project_id: str = PathParam(...),
-    role: str = Depends(require_role("maintainer")),
+    user: UserContext = Depends(require_project_role("maintainer")),
     idemp: str = Depends(verify_idempotency_key)
 ):
-    import uuid
-    return {"suite_id": str(uuid.uuid4())}
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Suite creation unconfigured in B00 baseline.")
 
 @router.get("/projects/{project_id}/skb/suites", status_code=status.HTTP_200_OK)
-async def skb_list_suites(project_id: str = PathParam(...), role: str = Depends(require_role("analyst"))):
+async def skb_list_suites(
+    project_id: str = PathParam(...),
+    user: UserContext = Depends(require_project_role("analyst"))
+):
     return []
 
 @router.get("/skb/suites/{suite_id}", status_code=status.HTTP_200_OK)
-async def skb_get_suite(suite_id: str = PathParam(...), role: str = Depends(require_role("analyst"))):
-    return {"suite_id": suite_id}
+async def skb_get_suite(
+    suite_id: str = PathParam(...),
+    user: UserContext = Depends(require_project_role("analyst"))
+):
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Suite not found")
 
 @router.post("/projects/{project_id}/skb/plans", response_model=Plan, status_code=status.HTTP_201_CREATED)
 async def skb_create_plan(
     project_id: str = PathParam(...),
     body: PlanCreate = ...,
-    role: str = Depends(require_role("analyst")),
+    user: UserContext = Depends(require_project_role("analyst")),
     idemp: str = Depends(verify_idempotency_key)
 ):
-    import uuid
-    return Plan(
-        id=str(uuid.uuid4()),
-        project_id=project_id,
-        package_id=body.package_id,
-        suite_id=body.suite_id,
-        sha256="0"*64,
-        state="draft",
-        definition=body.definition
-    )
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Plan store unconfigured in B00 baseline.")
 
 @router.get("/projects/{project_id}/skb/plans", response_model=List[Plan], status_code=status.HTTP_200_OK)
-async def skb_list_plans(project_id: str = PathParam(...), role: str = Depends(require_role("analyst"))):
+async def skb_list_plans(
+    project_id: str = PathParam(...),
+    user: UserContext = Depends(require_project_role("analyst"))
+):
     return []
 
 @router.get("/skb/plans/{plan_id}", response_model=Plan, status_code=status.HTTP_200_OK)
-async def skb_get_plan(plan_id: str = PathParam(...), role: str = Depends(require_role("analyst"))):
-    return Plan(
-        id=plan_id,
-        project_id="00000000-0000-4000-8000-000000000001",
-        package_id="00000000-0000-4000-8000-000000000002",
-        suite_id="00000000-0000-4000-8000-000000000003",
-        sha256="0"*64,
-        state="draft",
-        definition={}
-    )
+async def skb_get_plan(
+    plan_id: str = PathParam(...),
+    user: UserContext = Depends(require_project_role("analyst"))
+):
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
 
 @router.post("/skb/plans/{plan_id}:preregister", status_code=status.HTTP_200_OK)
 async def skb_preregister(
     plan_id: str = PathParam(...),
-    role: str = Depends(require_role("maintainer")),
+    user: UserContext = Depends(require_project_role("maintainer")),
     idemp: str = Depends(verify_idempotency_key)
 ):
-    return {"plan_id": plan_id, "state": "preregistered"}
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Preregistration unconfigured in B00 baseline.")
 
 @router.post("/projects/{project_id}/skb/experiments", response_model=Experiment, status_code=status.HTTP_201_CREATED)
 async def skb_create_experiment(
     project_id: str = PathParam(...),
     body: ExperimentCreate = ...,
-    role: str = Depends(require_role("operator")),
+    user: UserContext = Depends(require_project_role("operator")),
     idemp: str = Depends(verify_idempotency_key)
 ):
-    import uuid
-    return Experiment(
-        id=str(uuid.uuid4()),
-        project_id=project_id,
-        plan_id=body.plan_id,
-        plan_sha256="0"*64,
-        state="queued"
-    )
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Experiment runner unconfigured in B00 baseline.")
 
 @router.get("/projects/{project_id}/skb/experiments", response_model=List[Experiment], status_code=status.HTTP_200_OK)
-async def skb_list_experiments(project_id: str = PathParam(...), role: str = Depends(require_role("viewer"))):
+async def skb_list_experiments(
+    project_id: str = PathParam(...),
+    user: UserContext = Depends(require_project_role("viewer"))
+):
     return []
 
 @router.get("/skb/experiments/{experiment_id}", response_model=Experiment, status_code=status.HTTP_200_OK)
-async def skb_get_experiment(experiment_id: str = PathParam(...), role: str = Depends(require_role("viewer"))):
-    return Experiment(
-        id=experiment_id,
-        project_id="00000000-0000-4000-8000-000000000001",
-        plan_id="00000000-0000-4000-8000-000000000002",
-        plan_sha256="0"*64,
-        state="completed"
-    )
+async def skb_get_experiment(
+    experiment_id: str = PathParam(...),
+    user: UserContext = Depends(require_project_role("viewer"))
+):
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found")
 
 @router.get("/skb/experiments/{experiment_id}/trials", status_code=status.HTTP_200_OK)
-async def skb_list_trials(experiment_id: str = PathParam(...), role: str = Depends(require_role("analyst"))):
+async def skb_list_trials(
+    experiment_id: str = PathParam(...),
+    user: UserContext = Depends(require_project_role("analyst"))
+):
     return []
 
 @router.post("/skb/experiments/{experiment_id}/analyses", response_model=Analysis, status_code=status.HTTP_201_CREATED)
 async def skb_create_analysis(
     experiment_id: str = PathParam(...),
-    role: str = Depends(require_role("analyst")),
+    user: UserContext = Depends(require_project_role("analyst")),
     idemp: str = Depends(verify_idempotency_key)
 ):
-    import uuid
-    return Analysis(
-        id=str(uuid.uuid4()),
-        project_id="00000000-0000-4000-8000-000000000001",
-        experiment_id=experiment_id,
-        result={"mean_diff": 0.5, "ci_lower": 0.2, "ci_upper": 0.8}
-    )
+    raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Analysis engine unconfigured in B00 baseline.")
 
 @router.get("/skb/analyses/{analysis_id}", response_model=Analysis, status_code=status.HTTP_200_OK)
-async def skb_get_analysis(analysis_id: str = PathParam(...), role: str = Depends(require_role("analyst"))):
-    return Analysis(
-        id=analysis_id,
-        project_id="00000000-0000-4000-8000-000000000001",
-        experiment_id="00000000-0000-4000-8000-000000000002",
-        result={"mean_diff": 0.5}
-    )
+async def skb_get_analysis(
+    analysis_id: str = PathParam(...),
+    user: UserContext = Depends(require_project_role("analyst"))
+):
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
