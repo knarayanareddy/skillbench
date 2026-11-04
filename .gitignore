@@ -35,3 +35,12 @@ htmlcov/
 node_modules/
 .next/
 out/
+
+# Node / frontend
+node_modules/
+apps/web/dist/
+apps/web/.vite/
+*.tsbuildinfo
+
+# Local development scratch
+.dev/

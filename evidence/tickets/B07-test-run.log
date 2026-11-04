@@ -1,0 +1,24 @@
+/home/user/skillbench/.venv/lib/python3.11/site-packages/pytest_asyncio/plugin.py:300: PytestDeprecationWarning: The configuration option "asyncio_default_fixture_loop_scope" is unset.
+The event loop scope for asynchronous fixtures will default to the "fixture" caching scope. Future versions of pytest-asyncio will default the loop scope for asynchronous fixtures to "function" scope. Set the default fixture loop scope explicitly in order to avoid unexpected behavior in the future. Valid fixture loop scopes are: "function", "class", "module", "package", "session"
+
+  warnings.warn(PytestDeprecationWarning(_DEFAULT_FIXTURE_LOOP_SCOPE_UNSET))
+........................................................................ [ 30%]
+........................................................................ [ 60%]
+........................................................................ [ 90%]
+.......................                                                  [100%]
+=============================== warnings summary ===============================
+src/core/oidc.py:20
+  /home/user/skillbench/src/core/oidc.py:20: AuthlibDeprecationWarning: authlib.jose module is deprecated, please use joserfc instead.
+  It will be compatible before version 2.0.0.
+    from authlib.jose import JsonWebKey, JsonWebToken
+
+tests/api/test_auth.py::test_login_establishes_server_side_session
+  /home/user/skillbench/.venv/lib/python3.11/site-packages/platformdirs/api.py:467: RuntimeDirWarning: XDG_RUNTIME_DIR is not set, falling back to /tmp/runtime-1001
+    return Path(self.user_runtime_dir)
+
+tests/api/test_skb_flow.py::test_malicious_archives_are_rejected_and_never_approvable[entries2-duplicate_path]
+  /usr/lib/python3.11/zipfile.py:1569: UserWarning: Duplicate name: 'ok.txt'
+    return self._open_to_write(zinfo, force_zip64=force_zip64)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+239 passed, 3 warnings in 32.47s

@@ -1,0 +1,29 @@
+import { defineConfig, loadEnv } from "vite";
+import react from "@vitejs/plugin-react";
+
+/**
+ * The browser never calls localhost directly: everything goes to `/api` on the
+ * same origin and the dev server proxies it to the API process. In production the
+ * reverse proxy serves the built assets and the API under one origin.
+ */
+const target = loadEnv("development", process.cwd(), "SKB_").SKB_API_URL ?? "http://127.0.0.1:8000";
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    host: "0.0.0.0",
+    port: 5173,
+    strictPort: true,
+    // The platform preview proxies the sandbox port through its own hostname.
+    allowedHosts: true,
+    proxy: {
+      "/api": { target, changeOrigin: false },
+      "/health": { target, changeOrigin: false },
+      "/local-idp": { target, changeOrigin: false },
+      "/docs": { target, changeOrigin: false },
+      "/openapi.json": { target, changeOrigin: false },
+    },
+  },
+  preview: { host: "0.0.0.0", port: 5173 },
+  build: { outDir: "dist", sourcemap: false },
+});

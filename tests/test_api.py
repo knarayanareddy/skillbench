@@ -1,174 +1,164 @@
-"""API Route Integration Tests for SkillBench (Fail-Closed & Authorization Enforcement)."""
+"""Baseline API behaviour: fail-closed authentication, scoping and capability checks.
+
+This module replaces the B00-era stub expectations (``POST /projects`` returning
+501, synthetic ``Bearer test-token-*`` identities). The reviewed change is:
+identity now comes from the real OIDC flow or a scoped machine key, and project
+creation is implemented (201) instead of disabled (501). The negative guarantees
+are preserved one-for-one and extend to the object routes.
+"""
+from __future__ import annotations
+
+import uuid
+
 import pytest
-from httpx import AsyncClient, ASGITransport
-from src.main import app
+
 from src.core.security import verify_token
+from tests.support import helpers
+from tests.support.pgenv import PROJECT_A, PROJECT_B
 
-TEST_PROJ = "00000000-0000-4000-8000-000000000001"
-OTHER_PROJ = "00000000-0000-4000-8000-000000000999"
-
-AUTH_ADMIN = {"Authorization": "Bearer test-token-admin"}
-AUTH_MAINTAINER = {"Authorization": "Bearer test-token-maintainer"}
-AUTH_OPERATOR = {"Authorization": "Bearer test-token-operator"}
-AUTH_ANALYST = {"Authorization": "Bearer test-token-analyst"}
-AUTH_VIEWER = {"Authorization": "Bearer test-token-viewer"}
-AUTH_MULTI = {"Authorization": "Bearer test-token-analyst-operator"}
-AUTH_INVALID = {"Authorization": "Bearer invalid-token"}
-IDEMP_HEADER = {"Idempotency-Key": "00000000-0000-4000-8000-000000000001"}
+TEST_PROJ = PROJECT_A
+OTHER_PROJ = PROJECT_B
+UNKNOWN_ID = str(uuid.uuid4())
 
 
 def test_production_verifier_rejects_test_tokens():
-    """Verify runtime verifier fails closed and never accepts synthetic test tokens."""
-    assert verify_token("Bearer test-token-admin") is None
-    assert verify_token("Bearer test-token-maintainer") is None
-    assert verify_token("Bearer test-token-operator") is None
-    assert verify_token("Bearer test-token-analyst") is None
-    assert verify_token("Bearer test-token-viewer") is None
-    assert verify_token("Bearer nonsense") is None
+    """The runtime verifier fails closed and never accepts synthetic tokens."""
+    for token in (
+        "Bearer test-token-admin",
+        "Bearer test-token-maintainer",
+        "Bearer test-token-operator",
+        "Bearer test-token-analyst",
+        "Bearer test-token-viewer",
+        "Bearer test-token-analyst-operator",
+        "Bearer nonsense",
+        "",
+    ):
+        assert verify_token(token) is None
 
 
-@pytest.mark.asyncio
-async def test_healthz_endpoint_is_public():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get("/healthz")
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] == "pass"
+async def test_health_endpoints_are_public(client):
+    live = await client.get("/healthz")
+    assert live.status_code == 200
+    body = live.json()
+    assert body["status"] == "pass"
+    assert "database" not in body.get("checks", {})
 
 
-@pytest.mark.asyncio
-async def test_unauthenticated_request_rejected():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get("/api/v1/projects")
-        assert res.status_code == 401
+async def test_unauthenticated_requests_are_rejected(client):
+    for path in (
+        "/api/v1/projects",
+        f"/api/v1/projects/{TEST_PROJ}/skb/packages",
+        f"/api/v1/skb/packages/{UNKNOWN_ID}",
+    ):
+        assert (await client.get(path)).status_code == 401
 
 
-@pytest.mark.asyncio
-async def test_invalid_bearer_token_rejected():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get("/api/v1/projects", headers=AUTH_INVALID)
-        assert res.status_code == 401
+async def test_invalid_token_is_rejected(client):
+    response = await client.get(
+        "/api/v1/projects", headers={"Authorization": "Bearer test-token-admin"}
+    )
+    assert response.status_code == 401
+    assert response.json()["code"] == "unauthenticated"
 
 
-@pytest.mark.asyncio
-async def test_authenticated_list_projects_passes():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get("/api/v1/projects", headers=AUTH_VIEWER)
-        assert res.status_code == 200
-        assert isinstance(res.json(), list)
+async def test_create_project_requires_idempotency_key(client):
+    session = await helpers.user_session(client, "skb-dev-admin")
+    response = await client.post(
+        "/api/v1/projects",
+        json={"name": "No key", "content_capture": "metadata_only", "external_transfer": False},
+        headers={"X-CSRF-Token": session.csrf_token, "Origin": "https://testserver"},
+    )
+    assert response.status_code == 400
+    assert response.json()["code"] == "invalid"
 
 
-@pytest.mark.asyncio
-async def test_create_project_requires_idempotency_key():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.post("/api/v1/projects", json={"name": "Test"}, headers=AUTH_ADMIN)
-        assert res.status_code == 400
+async def test_create_project_requires_org_admin(client):
+    session = await helpers.user_session(client, "skb-dev-viewer")
+    response = await session.post(
+        "/api/v1/projects",
+        json={"name": "Not admin", "content_capture": "metadata_only", "external_transfer": False},
+    )
+    assert response.status_code == 403
 
 
-@pytest.mark.asyncio
-async def test_create_project_requires_org_admin():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        headers = {**AUTH_VIEWER, **IDEMP_HEADER}
-        res = await ac.post("/api/v1/projects", json={"name": "Test"}, headers=headers)
-        assert res.status_code == 403
+async def test_create_project_now_returns_201(client):
+    session = await helpers.user_session(client, "skb-dev-admin")
+    response = await session.post(
+        "/api/v1/projects",
+        json={"name": "Created", "content_capture": "metadata_only", "external_transfer": False},
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["revision"] == 1
+    uuid.UUID(body["id"])
 
 
-@pytest.mark.asyncio
-async def test_create_project_fails_closed_in_b00():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        headers = {**AUTH_ADMIN, **IDEMP_HEADER}
-        res = await ac.post("/api/v1/projects", json={"name": "Test"}, headers=headers)
-        assert res.status_code == 501
+async def test_project_route_unauthenticated_denied(client):
+    assert (await client.get(f"/api/v1/projects/{TEST_PROJ}/skb/packages")).status_code == 401
 
 
-# --- Project-Path Route Denial & Capability Tests ---
-
-@pytest.mark.asyncio
-async def test_project_route_unauthenticated_denied():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get(f"/api/v1/projects/{TEST_PROJ}/skb/packages")
-        assert res.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_project_route_insufficient_capability_denied():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        # skb/suites requires maintainer capability; analyst must be rejected with 403
-        headers = {**AUTH_ANALYST, **IDEMP_HEADER}
-        res = await ac.post(
-            f"/api/v1/projects/{TEST_PROJ}/skb/suites",
-            headers=headers
-        )
-        assert res.status_code == 403
+async def test_project_route_insufficient_capability_denied(client):
+    session = await helpers.user_session(client, "skb-dev-analyst")
+    # Suites require maintainer; an analyst is rejected before any body parsing.
+    response = await session.post(
+        f"/api/v1/projects/{TEST_PROJ}/skb/suites",
+        json={"name": "nope", "tasks": [], "rights_manifest_artifact_id": UNKNOWN_ID},
+    )
+    assert response.status_code == 403
 
 
-@pytest.mark.asyncio
-async def test_project_route_unauthorized_project_denied():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        # User has role on TEST_PROJ, but not OTHER_PROJ
-        res = await ac.get(f"/api/v1/projects/{OTHER_PROJ}/skb/packages", headers=AUTH_ANALYST)
-        assert res.status_code == 403
+async def test_project_route_unauthorized_project_denied(client):
+    session = await helpers.user_session(client, "skb-dev-analyst")
+    assert (await session.get(f"/api/v1/projects/{OTHER_PROJ}/skb/packages")).status_code == 403
 
 
-@pytest.mark.asyncio
-async def test_project_route_authorized_capability_passes():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get(f"/api/v1/projects/{TEST_PROJ}/skb/packages", headers=AUTH_ANALYST)
-        assert res.status_code == 200
+async def test_project_route_authorized_capability_passes(client):
+    session = await helpers.user_session(client, "skb-dev-analyst")
+    response = await session.get(f"/api/v1/projects/{TEST_PROJ}/skb/packages")
+    assert response.status_code == 200
+    assert response.json() == {"items": [], "next_cursor": None}
 
 
-# --- Object-ID Route Denial & Capability Tests ---
-
-@pytest.mark.asyncio
-async def test_object_route_unauthenticated_denied():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get("/api/v1/skb/packages/00000000-0000-4000-8000-000000000009")
-        assert res.status_code == 401
+async def test_object_route_unauthenticated_denied(client):
+    assert (await client.get(f"/api/v1/skb/packages/{UNKNOWN_ID}")).status_code == 401
 
 
-@pytest.mark.asyncio
-async def test_object_route_absent_scope_denied():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        # Calling object endpoint without X-Project-Id header must fail closed with 403
-        res = await ac.get("/api/v1/skb/packages/00000000-0000-4000-8000-000000000009", headers=AUTH_ANALYST)
-        assert res.status_code == 403
+async def test_object_route_absent_scope_denied(client):
+    session = await helpers.user_session(client, "skb-dev-analyst")
+    assert (await session.get(f"/api/v1/skb/packages/{UNKNOWN_ID}")).status_code == 403
 
 
-@pytest.mark.asyncio
-async def test_object_route_unauthorized_scope_denied():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        headers = {**AUTH_ANALYST, "X-Project-Id": OTHER_PROJ}
-        res = await ac.get("/api/v1/skb/packages/00000000-0000-4000-8000-000000000009", headers=headers)
-        assert res.status_code == 403
+async def test_object_route_unauthorized_scope_denied(client):
+    session = await helpers.user_session(client, "skb-dev-analyst")
+    response = await session.get(
+        f"/api/v1/skb/packages/{UNKNOWN_ID}", headers={"X-Project-ID": OTHER_PROJ}
+    )
+    assert response.status_code == 403
 
 
-@pytest.mark.asyncio
-async def test_object_route_insufficient_capability_denied():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        # skb/packages inspect requires operator; viewer must be rejected with 403
-        headers = {**AUTH_VIEWER, **IDEMP_HEADER, "X-Project-Id": TEST_PROJ}
-        res = await ac.post("/api/v1/skb/packages/00000000-0000-4000-8000-000000000009:inspect", headers=headers)
-        assert res.status_code == 403
+async def test_object_route_insufficient_capability_denied(client):
+    session = await helpers.user_session(client, "skb-dev-viewer")
+    response = await session.post(
+        f"/api/v1/skb/packages/{UNKNOWN_ID}:inspect", headers={"X-Project-ID": TEST_PROJ}
+    )
+    assert response.status_code == 403
 
 
-@pytest.mark.asyncio
-async def test_object_route_authorized_scope_passes():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        headers = {**AUTH_ANALYST, "X-Project-Id": TEST_PROJ}
-        res = await ac.get("/api/v1/skb/packages/00000000-0000-4000-8000-000000000009", headers=headers)
-        # Auth passed, returns 404 in baseline (package not found) rather than 401/403
-        assert res.status_code == 404
+async def test_object_route_authorized_scope_returns_not_found(client):
+    session = await helpers.user_session(client, "skb-dev-analyst")
+    response = await session.get(
+        f"/api/v1/skb/packages/{UNKNOWN_ID}", headers={"X-Project-ID": TEST_PROJ}
+    )
+    # Authorization succeeded; the object simply does not exist in that project.
+    assert response.status_code == 404
 
 
-# --- Multi-Capability Union Tests ---
-
-@pytest.mark.asyncio
-async def test_multi_capability_union_grant():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        headers_analyst = {**AUTH_MULTI, "X-Project-Id": TEST_PROJ}
-        res_a = await ac.get("/api/v1/skb/packages/00000000-0000-4000-8000-000000000009", headers=headers_analyst)
-        assert res_a.status_code == 404  # Passes auth (analyst cap satisfied)
-
-        headers_op = {**AUTH_MULTI, **IDEMP_HEADER, "X-Project-Id": TEST_PROJ}
-        res_b = await ac.post("/api/v1/skb/packages/00000000-0000-4000-8000-000000000009:inspect", headers=headers_op)
-        assert res_b.status_code == 501  # Passes auth (operator cap satisfied)
+async def test_capability_union_across_roles(client):
+    """A maintainer inherits analyst + operator + viewer capabilities."""
+    session = await helpers.user_session(client, "skb-dev-maintainer")
+    read = await session.get(f"/api/v1/skb/packages/{UNKNOWN_ID}", headers={"X-Project-ID": TEST_PROJ})
+    assert read.status_code == 404  # analyst capability satisfied
+    inspect = await session.post(
+        f"/api/v1/skb/packages/{UNKNOWN_ID}:inspect", headers={"X-Project-ID": TEST_PROJ}
+    )
+    assert inspect.status_code == 404  # operator capability satisfied, object absent
