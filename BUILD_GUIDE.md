@@ -33,7 +33,8 @@ This guide provides actionable steps for a build agent to carry out the implemen
 
 ### Ticket B03: Security & Authorization (`src/core/security.py`, `src/api/deps.py`)
 - Implement token decoding and subject extraction in `verify_token`.
-- Enforce the 5 project roles: `viewer`, `analyst`, `operator`, `maintainer`, `admin`.
+- Enforce the normative 2 Organization roles (`member`, `admin`) and 4 Project capability sets (`viewer`, `analyst`, `operator`, `maintainer`).
+- Support union of multiple capability grants per user context.
 - Ensure mutating requests without a valid `Idempotency-Key` header return HTTP 400.
 
 ### Ticket B04 & B05: Uploads & Jobs (`src/api/foundation.py`)
@@ -47,7 +48,7 @@ This guide provides actionable steps for a build agent to carry out the implemen
 
 ### Product Focus: SkillBench
 - Inspect `docs/01_Product_Specification.md` and `contracts/openapi.yaml`.
-- Open `src/api/routes_skb.py` and `src/services/skb.py`.
+- Open `src/api/skb.py` and `src/services/skb.py`.
 - Implement the domain operations:
     - `B07`: See implementation-plan.json for specific acceptance criteria.
 
