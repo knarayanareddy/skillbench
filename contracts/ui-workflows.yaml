@@ -1,0 +1,231 @@
+version: ui-contract/1
+tokens:
+  spacing_px:
+  - 4
+  - 8
+  - 12
+  - 16
+  - 24
+  - 32
+  - 48
+  font_px:
+    body: 16
+    small: 14
+    h1: 30
+    h2: 24
+  colors:
+    text: '#17324D'
+    background: '#F5F8FB'
+    surface: '#FFFFFF'
+    primary: '#087A83'
+    danger: '#B42318'
+    warning: '#8A5800'
+  focus: '3px solid #087A83 with 2px offset'
+  breakpoints_px:
+  - 390
+  - 768
+  - 1280
+global_rules:
+- All forms derive structural validation from request schemas; server remains authoritative.
+- Source/replay/experiment mode badge always visible; simulation cannot look live.
+- Capture credentials and raw API keys never in browser/localStorage.
+- Conflict preserves unsaved edits and requires explicit rebase.
+- No color-only status; all charts have tables; all source views have text alternatives.
+- Keyboard order header -> filters -> main table/list -> selected detail -> actions.
+  Escape returns focus to opener.
+- Mobile uses source/form tabs, not side-by-side squeezed panes.
+- No optimistic mutation of immutable records; only draft text may autosave.
+- Approval dialogs state project, revision/digest, action, limits and effect; Cancel
+  is default focus.
+screens:
+- id: skb_packages
+  route: /skb/packages/:id
+  title: Skill package inspection
+  role: analyst
+  layout:
+    desktop: navigation + header + 2-column evidence/list and detail
+    tablet: collapsible detail drawer
+    mobile: stacked read/act tabs with preserved selection
+  fields:
+  - sha256
+  - state
+  - execution_profile
+  - license
+  - files
+  - findings
+  states: &id001
+    loading: skeleton; preserve stable navigation; aria-busy true
+    empty: specific empty message and permitted create/sample action
+    ready: data + revision + source/mode labels
+    denied: no content; request ID; do not suggest guessing IDs
+    error: safe problem summary + retry only if idempotent
+    conflict: show base/current; no automatic overwrite
+    offline: read-only cached view labeled stale; no hidden queued writes
+    partial: explicit omissions and blocked approval/export where required
+  actions:
+  - id: create_package
+    operation_id: skb_create_package
+    request_schema: PackageCreate
+    validation: ready ZIP artifact from shared uploader; schema/semantic validation
+    in_flight: disable duplicate submit
+    success: navigate to returned package id
+    failure: retain inputs and show safe Problem
+  - id: inspect
+    operation_id: skb_inspect_package
+    request_schema: Empty
+    validation: schema + semantic preflight; mark errors adjacent to field
+    in_flight: disable duplicate submit; keep focus; show real status
+    success: persist returned revision; announce once; navigate only after response
+    failure: retain input; render safe Problem; conflict requires explicit resolution
+  - id: approve
+    operation_id: skb_review_package
+    request_schema: PackageReview
+    validation: schema + semantic preflight; mark errors adjacent to field
+    in_flight: disable duplicate submit; keep focus; show real status
+    success: persist returned revision; announce once; navigate only after response
+    failure: retain input; render safe Problem; conflict requires explicit resolution
+  accessibility:
+  - heading hierarchy
+  - labeled controls
+  - focus return
+  - text alternative
+  - 200/400% zoom/reflow review
+  - screen-reader task test
+  required_tests:
+  - skb_packages_happy
+  - skb_packages_denied
+  - skb_packages_offline
+  - skb_packages_error
+  - skb_packages_keyboard
+- id: skb_plan
+  route: /skb/plans/new
+  title: Controlled experiment plan
+  role: analyst
+  layout:
+    desktop: navigation + header + 2-column evidence/list and detail
+    tablet: collapsible detail drawer
+    mobile: stacked read/act tabs with preserved selection
+  fields:
+  - package_sha256
+  - suite_sha256
+  - repetitions
+  - seed
+  - bootstrap_iterations
+  - practical_margin
+  states: *id001
+  actions:
+  - id: create_fixture_suite_dialog
+    operation_id: skb_create_suite
+    request_schema: SuiteCreate
+    validation: maintainer only; fixture scorer IDs and rights declaration
+    in_flight: disable duplicate submit
+    success: select created immutable suite
+    failure: retain draft; no silent hidden-answer disclosure
+  - id: save_plan
+    operation_id: skb_create_plan
+    request_schema: PlanCreate
+    validation: schema + semantic preflight; mark errors adjacent to field
+    in_flight: disable duplicate submit; keep focus; show real status
+    success: persist returned revision; announce once; navigate only after response
+    failure: retain input; render safe Problem; conflict requires explicit resolution
+  - id: freeze
+    operation_id: skb_preregister
+    request_schema: Empty
+    validation: schema + semantic preflight; mark errors adjacent to field
+    in_flight: disable duplicate submit; keep focus; show real status
+    success: persist returned revision; announce once; navigate only after response
+    failure: retain input; render safe Problem; conflict requires explicit resolution
+  accessibility:
+  - heading hierarchy
+  - labeled controls
+  - focus return
+  - text alternative
+  - 200/400% zoom/reflow review
+  - screen-reader task test
+  required_tests:
+  - skb_plan_happy
+  - skb_plan_denied
+  - skb_plan_offline
+  - skb_plan_error
+  - skb_plan_keyboard
+- id: skb_experiment
+  route: /skb/experiments/:id
+  title: Fixture experiment
+  role: operator
+  layout:
+    desktop: navigation + header + 2-column evidence/list and detail
+    tablet: collapsible detail drawer
+    mobile: stacked read/act tabs with preserved selection
+  fields:
+  - state
+  - trial_count
+  - missing_count
+  - simulation_notice
+  states: *id001
+  actions:
+  - id: start
+    operation_id: skb_create_experiment
+    request_schema: ExperimentCreate
+    validation: schema + semantic preflight; mark errors adjacent to field
+    in_flight: disable duplicate submit; keep focus; show real status
+    success: persist returned revision; announce once; navigate only after response
+    failure: retain input; render safe Problem; conflict requires explicit resolution
+  - id: cancel
+    operation_id: foundation_cancel_job
+    request_schema: Empty
+    validation: schema + semantic preflight; mark errors adjacent to field
+    in_flight: disable duplicate submit; keep focus; show real status
+    success: persist returned revision; announce once; navigate only after response
+    failure: retain input; render safe Problem; conflict requires explicit resolution
+  accessibility:
+  - heading hierarchy
+  - labeled controls
+  - focus return
+  - text alternative
+  - 200/400% zoom/reflow review
+  - screen-reader task test
+  required_tests:
+  - skb_experiment_happy
+  - skb_experiment_denied
+  - skb_experiment_offline
+  - skb_experiment_error
+  - skb_experiment_keyboard
+- id: skb_analysis
+  route: /skb/analyses/:id
+  title: Evidence and uncertainty
+  role: analyst
+  layout:
+    desktop: navigation + header + 2-column evidence/list and detail
+    tablet: collapsible detail drawer
+    mobile: stacked read/act tabs with preserved selection
+  fields:
+  - n_tasks
+  - n_complete_tasks
+  - delta
+  - ci_low
+  - ci_high
+  - bound_low
+  - bound_high
+  - missing_trials
+  states: *id001
+  actions:
+  - id: analyze
+    operation_id: skb_create_analysis
+    request_schema: Empty
+    validation: schema + semantic preflight; mark errors adjacent to field
+    in_flight: disable duplicate submit; keep focus; show real status
+    success: persist returned revision; announce once; navigate only after response
+    failure: retain input; render safe Problem; conflict requires explicit resolution
+  accessibility:
+  - heading hierarchy
+  - labeled controls
+  - focus return
+  - text alternative
+  - 200/400% zoom/reflow review
+  - screen-reader task test
+  required_tests:
+  - skb_analysis_happy
+  - skb_analysis_denied
+  - skb_analysis_offline
+  - skb_analysis_error
+  - skb_analysis_keyboard
