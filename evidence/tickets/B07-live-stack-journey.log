@@ -1,0 +1,16 @@
+callback 303
+upload 201
+put 200
+finalize 200
+package 201
+inspect 202
+worker: 0 []
+inspected state inspected entries 2
+review 200
+suite 201
+plan 201
+preregister 200
+experiment 202
+worker: 0 []
+experiment state completed trials 72
+analysis 201 {"status": "valid", "delta": 0.5, "ci_low": 0.25, "ci_high": 0.75, "interpretation": "descriptive_no_certification"}

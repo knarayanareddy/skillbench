@@ -87,3 +87,28 @@ Only those two entries in `contracts/baseline-manifest.json` were recomputed:
 
 No blanket regeneration was performed. Role/runtime source files are new and therefore
 outside the protected set; the manifest intentionally covers only the reviewed baseline.
+
+## Live local stack walkthrough (not a substitute for tests)
+
+`evidence/tickets/B07-live-stack-journey.log` records the same journey driven through the
+**UI origin** (Vite dev server on :5173 proxying `/api` and `/local-idp` to uvicorn on
+:8000), with the worker running as a separate process using `worker_login`:
+
+```
+upload 201 / put 200 / finalize 200 / package 201 / inspect 202
+worker exit 0 → package inspected (2 entries)
+review 200 / suite 201 / plan 201 / preregister 200 / experiment 202
+worker exit 0 → experiment completed, 72 trials
+analysis 201 {"status":"valid","delta":0.5,"ci_low":0.25,"ci_high":0.75,
+              "interpretation":"descriptive_no_certification"}
+```
+
+Changes made while validating the live stack:
+
+- the local synthetic IdP now shows a **subject chooser** instead of defaulting to one
+  identity (no silent impersonation, still no passwords);
+- `GET /skb/packages/{id}/inspection` returns the revision `ETag` so the review form can
+  send `If-Match`;
+- worker startup validates only its own surface (`require_identity=False`); it performs no
+  authentication, and it exits `0` with `{"status":"ok","processed":N}` instead of using
+  the job count as an exit status.

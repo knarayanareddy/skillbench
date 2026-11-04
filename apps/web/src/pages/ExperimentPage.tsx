@@ -19,7 +19,6 @@ export function ExperimentPage({ session }: { session: SessionBody }): JSX.Eleme
   const [problem, setProblem] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
   const roles = session.projects.find((item) => item.project_id === projectId)?.roles ?? [];
-  const canRun = roles.some((role) => role === "operator" || role === "maintainer");
   const canAnalyse = roles.some((role) => role === "analyst" || role === "maintainer");
 
   const load = useCallback(async () => {
@@ -39,28 +38,6 @@ export function ExperimentPage({ session }: { session: SessionBody }): JSX.Eleme
   useEffect(() => {
     void load();
   }, [load]);
-
-  async function queue(): Promise<void> {
-    setBusy(true);
-    setProblem(null);
-    try {
-      const current = experiment;
-      if (!current) throw new Error("missing experiment");
-      const plan = await request<{ id: string; sha256: string }>(`/api/v1/skb/plans/${current.plan_id}`, {
-        projectId,
-      });
-      await request(`/api/v1/projects/${projectId}/skb/experiments`, {
-        method: "POST",
-        projectId,
-        body: { plan_id: plan.id, plan_sha256: plan.sha256 },
-      });
-      await load();
-    } catch (caught) {
-      if (caught instanceof ApiError) setProblem(caught);
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function analyse(): Promise<void> {
     setBusy(true);
@@ -111,16 +88,18 @@ export function ExperimentPage({ session }: { session: SessionBody }): JSX.Eleme
             <StatusBadge state={experiment.state} />{" "}
             <span className="muted mono small">plan {experiment.plan_sha256.slice(0, 12)}…</span>
           </p>
+          <p className="muted small">
+            {experiment.state === "queued"
+              ? "Queued: the worker replays recorded synthetic trials for every task and arm."
+              : experiment.state === "running"
+                ? "Running: trials appear as the worker commits them."
+                : "The run has finished; unexecuted trials are absent, never invented."}
+          </p>
         </div>
         <div className="page-header__actions">
           <button type="button" className="button" onClick={() => void load()}>
             Refresh
           </button>
-          {canRun && experiment.state === "queued" ? (
-            <button type="button" className="button button--primary" onClick={() => void queue()} disabled={busy}>
-              Queue run
-            </button>
-          ) : null}
           {canAnalyse && ["completed", "stopped", "failed"].includes(experiment.state) ? (
             <button type="button" className="button button--primary" onClick={() => void analyse()} disabled={busy}>
               Compute descriptive analysis

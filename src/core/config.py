@@ -124,10 +124,12 @@ def _looks_placeholder(value: str) -> bool:
     return value.strip() in PLACEHOLDER_VALUES or value.strip().lower().startswith("unconfigured")
 
 
-def validate_runtime(settings: Settings) -> List[str]:
+def validate_runtime(settings: Settings, *, require_identity: bool = True) -> List[str]:
     """Return a list of fail-closed startup problems (empty means acceptable).
 
-    Called from the application lifespan; a non-empty list aborts startup.
+    Called from the application lifespan; a non-empty list aborts startup. The worker
+    performs no authentication, so it passes ``require_identity=False`` and validates
+    only the database/artifact surface it actually uses.
     """
     problems: List[str] = []
     env = settings.ENVIRONMENT
@@ -160,6 +162,9 @@ def validate_runtime(settings: Settings) -> List[str]:
             problems.append("debug_forbidden_in_production")
         if settings.LOCAL_IDP:
             problems.append("local_idp_forbidden_in_production")
+    if not require_identity:
+        return problems
+    if env == "production":
         if _looks_placeholder(settings.OIDC_ISSUER) or not settings.OIDC_ISSUER.startswith("https://"):
             problems.append("oidc_issuer_invalid")
         if _looks_placeholder(settings.OIDC_CLIENT_ID):

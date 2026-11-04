@@ -166,7 +166,9 @@ async def skb_package_inspection(
         project_id=scope.project_id, organization_id=scope.auth.user.organization_id
     ) as session:
         body = await skb.package_detail(session, project_id=scope.project_id, package_id=package_id)
-    return _response(request, body, status_code=200)
+    return _response(
+        request, body, status_code=200, headers=etag_headers(int(body.get("revision", 1)))
+    )
 
 
 @router.post("/skb/packages/{package_id}:inspect", status_code=202)

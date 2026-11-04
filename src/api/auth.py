@@ -6,7 +6,7 @@ from typing import Optional
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from src.api.deps import authenticate, get_db, get_oidc, get_settings, verify_idempotency_key
 from src.api.deps import AuthContext
@@ -187,12 +187,17 @@ async def local_idp_authorize(
     code_challenge: str,
     response_type: str = "code",
     code_challenge_method: str = "S256",
-    login_hint: str = "skb-dev-analyst",
+    login_hint: Optional[str] = None,
     scope: str = "openid",
 ):
     provider = _idp(request)
     if response_type != "code" or code_challenge_method != "S256":
         raise Problem("invalid", "Unsupported authorization request.")
+    if not login_hint:
+        # Development-only account chooser: the synthetic IdP has no passwords and
+        # no registration, so it lists the preprovisioned subjects instead of
+        # silently impersonating one of them.
+        return _subject_chooser(request)
     if login_hint not in LOCAL_IDP_SUBJECTS:
         raise Problem("forbidden", "Subject is not provisioned for the synthetic identity provider.")
     try:
@@ -209,6 +214,32 @@ async def local_idp_authorize(
     response = RedirectResponse(location, status_code=302)
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+def _subject_chooser(request: Request):
+    from html import escape
+
+    query = {key: value for key, value in request.query_params.items() if key != "login_hint"}
+    rows = []
+    for subject, description in sorted(LOCAL_IDP_SUBJECTS.items()):
+        target = "/local-idp/authorize?" + urlencode({**query, "login_hint": subject})
+        rows.append(
+            f'<li><a href="{escape(target, quote=True)}"><strong>{escape(subject)}</strong></a>'
+            f' — {escape(description)}</li>'
+        )
+    body = (
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<title>Local synthetic identity provider</title>"
+        "<style>body{font:16px/1.5 system-ui,sans-serif;max-width:44rem;margin:3rem auto;"
+        "padding:0 1rem;color:#17324d}li{margin:.5rem 0}</style></head><body>"
+        "<h1>Local synthetic identity provider</h1>"
+        "<p>Development and test only. No passwords, no registration, no real accounts. "
+        "Choose a preprovisioned subject to continue.</p><ul>" + "".join(rows) + "</ul>"
+        "<p><small>Synthetic identities are refused outside development/test environments.</small></p>"
+        "</body></html>"
+    )
+    return HTMLResponse(body, headers={"Cache-Control": "no-store"})
 
 
 @local_idp_router.post("/token")

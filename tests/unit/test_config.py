@@ -125,3 +125,15 @@ def test_unimplemented_capabilities_report_503_mode_disabled():
     problem = Problem("mode_disabled", "Live model execution is disabled in fixture-only mode.")
     assert problem.status_code == 503
     assert problem.code == "mode_disabled"
+
+
+def test_worker_validation_does_not_require_identity_configuration():
+    """The worker authenticates nobody, so it must validate only its own surface."""
+    worker_settings = make(
+        OIDC_ISSUER="", OIDC_CLIENT_ID="", SKB_LOCAL_IDP=False, SKB_ENV="development"
+    )
+    assert "oidc_configuration_missing" in validate_runtime(worker_settings)
+    assert validate_runtime(worker_settings, require_identity=False) == []
+    # Database and artifact problems are still reported for the worker.
+    broken = make(DATABASE_URL="", ARTIFACT_ROOT="")
+    assert "database_dsn_missing" in validate_runtime(broken, require_identity=False)

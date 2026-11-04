@@ -181,7 +181,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
-    problems = validate_runtime(default_settings)
+    problems = validate_runtime(default_settings, require_identity=False)
     if problems:
         print(json.dumps({"status": "refused", "problems": problems}), file=sys.stderr)
         return 2
@@ -193,9 +193,13 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     async def run() -> int:
         try:
-            return await worker.run_forever(max_jobs=args.max_jobs, idle_exit=args.idle_exit)
+            processed = await worker.run_forever(max_jobs=args.max_jobs, idle_exit=args.idle_exit)
         finally:
             await worker.close()
+        # Exit status reports configuration/run failure only; the processed count is
+        # informational (a non-zero exit here previously confused process supervisors).
+        print(json.dumps({"status": "ok", "processed": processed}))
+        return 0
 
     return asyncio.run(run())
 

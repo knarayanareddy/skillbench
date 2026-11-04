@@ -242,3 +242,16 @@ async def test_unknown_route_returns_problem_not_framework_html(client):
     assert response.status_code == 404
     assert response.headers["content-type"].startswith("application/problem+json")
     assert response.json()["code"] == "not_found"
+
+
+async def test_local_idp_lists_subjects_instead_of_impersonating(client):
+    """Development chooser: no silent default identity, no password form."""
+    response = await client.get("/api/v1/auth/login")
+    authorize = urlparse(response.headers["location"])
+    page = await client.get(f"{authorize.path}?{authorize.query}")
+    assert page.status_code == 200
+    assert page.headers["content-type"].startswith("text/html")
+    assert "skb-dev-maintainer" in page.text
+    assert 'type="password"' not in page.text
+    # Every listed subject is a preprovisioned synthetic identity.
+    assert "Development and test only" in page.text
