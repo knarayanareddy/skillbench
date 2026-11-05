@@ -11,10 +11,14 @@ The product slice is implemented and runs on a disposable local stack:
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
 python scripts/dev_db.py                    # PostgreSQL 16 + migrations + synthetic seed
-# then API, worker and UI as described in docs/SKB_Operations.md §2
+# then API, worker, lifecycle and UI as described in docs/SKB_Operations.md §2
 
-.venv/bin/python -m pytest -q               # real-PostgreSQL suite
-cd apps/web && npm run typecheck && npm run build
+.venv/bin/python -m pytest -q               # real-PostgreSQL suite (268 tests, Python 3.11 here)
+cd apps/web && npm run typecheck && npm run build   # UI builds on Node 24
+
+make lifecycle-dry-run                      # what retention/expiry would do, changing nothing
+make drill                                  # pg_dump/pg_restore round trip into a throwaway DB
+make images                                 # image/SBOM policy check (no container runtime here)
 ```
 
 - Architecture and file ownership: [`docs/Repository_Map.md`](docs/Repository_Map.md)

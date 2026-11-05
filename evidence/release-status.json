@@ -9,13 +9,13 @@
     },
     "postgres_migrations": {
       "status": "not_run",
-      "evidence": null,
-      "reason": "Requires implementation or independent execution/review."
+      "evidence": "evidence/tickets/B08-test-run.log",
+      "reason": "Migrations 001-003 apply cleanly on PostgreSQL 16.2 and 268 tests pass locally, including lifecycle grants. Independent execution/review still required; 003 must be reviewed as a new migration."
     },
     "application_e2e": {
       "status": "not_run",
-      "evidence": null,
-      "reason": "Requires implementation or independent execution/review."
+      "evidence": "evidence/tickets/B08-test-run.log",
+      "reason": "The suite drives the real ASGI app against real PostgreSQL locally (268 tests, no skips). Independent execution/review still required."
     },
     "authorization_matrix": {
       "status": "not_run",
@@ -39,8 +39,8 @@
     },
     "backup_restore": {
       "status": "not_run",
-      "evidence": null,
-      "reason": "Requires implementation or independent execution/review."
+      "evidence": "evidence/tickets/B10-backup-restore.md",
+      "reason": "Local drill passes (pg_dump/pg_restore into a disposable database; counts, digests, sequence state, RLS, immutability, readiness). Qualification on the target host with an operator-owned backup destination is still required, and is not a self-approved claim."
     },
     "load_chaos": {
       "status": "not_run",
@@ -74,8 +74,8 @@
     },
     "release_images_sbom": {
       "status": "not_run",
-      "evidence": null,
-      "reason": "Requires implementation or independent execution/review."
+      "evidence": "evidence/tickets/B11-images.md",
+      "reason": "Dockerfiles, runtime-only requirements, SBOMs and probe wiring exist and are policy-checked; no container runtime was available, so the images were never built, run or scanned. Base digests unresolved: this cannot pass without a real build."
     },
     "operator_signoff": {
       "status": "not_run",

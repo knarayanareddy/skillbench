@@ -90,7 +90,7 @@
     "fixtures/paired_trials.json": "ec8c72cd5bbebed3795f730fff9d66490c8c7fdd7cc62f530c3bbc770ad5a79c",
     "fixtures/synthetic-report.pdf": "ec14a14dcd0afc635c34446c6b4e4374dcb8f24866872c4523baf078e6c40a4a",
     "infra/Caddyfile": "edcc742175e1ce9e01ed048c12abb94707ac471edda42322fd74ecf19c36c311",
-    "infra/compose.yaml": "794de355b239dc038f9bd3554ad77029e46e09c227be74d14bb9b3e52647c185",
+    "infra/compose.yaml": "786e1e90b85335e9a80252d8588c59ef838107ee7912bb5a9f7190d5caa7a7c7",
     "infra/runtime-policy.yaml": "a600469de6724d3db79ff62d412065d6bd243dbe17a411a602d961a372b929b6",
     "infra/upstream-image-lock.json": "a10b561401caccdf9d71997c88b3757d9745b5f4fc7a8639c31d5eb200064f54",
     "reference/05_Shared_Baseline/.github/workflows/baseline.yml": "5a880eb868187cf20ea8375b2c7521764457c8b637394eb2fe4538c2a8458ff6",

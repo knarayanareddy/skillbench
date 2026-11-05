@@ -87,6 +87,12 @@ class Settings(BaseSettings):
 
     MAX_ARTIFACT_BYTES: int = 104857600
 
+    # Lifecycle (expiry/purge) process.
+    LIFECYCLE_BATCH: int = 200
+    LIFECYCLE_OUTBOX_DELIVER: bool = False
+    LIFECYCLE_OUTBOX_GRACE_SECONDS: int = 300
+    LIFECYCLE_AUTH_TRANSACTION_GRACE_SECONDS: int = 86400
+
     # Contract limits from infra/runtime-policy.yaml.
     ZIP_COMPRESSED_BYTES: int = 20971520
     ZIP_EXPANDED_BYTES: int = 104857600
