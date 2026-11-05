@@ -1,0 +1,43 @@
+# SkillBench static UI image.
+#
+# Stage 1 builds `apps/web/dist` with the pinned Node major; stage 2 contains the
+# built assets plus `scripts/serve_static.py` and nothing else. No node_modules,
+# no build toolchain and no source maps enter the runtime layer, so the shipped
+# surface is exactly what was reviewed.
+#
+# Both bases must be digest-pinned by the operator:
+#   docker build -f infra/Dockerfile.web \
+#     --build-arg NODE_BASE=node:24-slim@sha256:<reviewed-digest> \
+#     --build-arg PYTHON_BASE=python:3.12-slim@sha256:<reviewed-digest> .
+ARG NODE_BASE=node:24-slim
+FROM ${NODE_BASE} AS build
+
+WORKDIR /src
+# `npm ci` is lockfile-only and fails closed if package.json and the lock drift.
+COPY apps/web/package.json apps/web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY apps/web/tsconfig.json apps/web/vite.config.ts apps/web/index.html ./
+COPY apps/web/src ./src
+RUN npm run build
+
+ARG PYTHON_BASE=python:3.12-slim
+FROM ${PYTHON_BASE}
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN groupadd --gid 10001 skb \
+ && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent \
+            --shell /usr/sbin/nologin skb
+
+WORKDIR /app
+COPY --from=build /src/dist ./dist
+COPY scripts/serve_static.py ./scripts/serve_static.py
+
+USER 10001:10001
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health/live', timeout=2).status==200 else 1)"]
+
+CMD ["python", "scripts/serve_static.py", "--root", "/app/dist", "--host", "0.0.0.0", "--port", "8080"]

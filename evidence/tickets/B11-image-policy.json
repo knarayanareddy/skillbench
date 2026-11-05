@@ -1,0 +1,10 @@
+{
+  "status": "ok",
+  "problems": [],
+  "dockerfiles": [
+    "infra/Dockerfile.api",
+    "infra/Dockerfile.web"
+  ],
+  "container_runtime": null,
+  "production_ready": false
+}

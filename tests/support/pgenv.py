@@ -109,16 +109,24 @@ class PgEnv:
             return self.external_dsn
         return f"postgresql://postgres@/{database or self.database}?host={self.dir}"
 
-    def app_dsn(self) -> str:
-        return self._login_dsn("app_login")
+    def bin(self, name: str) -> str:
+        """Path to a bundled PostgreSQL client/server binary (pg_dump, pg_restore...)."""
+        return self._bin(name)
 
-    def worker_dsn(self) -> str:
-        return self._login_dsn("worker_login")
+    def app_dsn(self, database: Optional[str] = None) -> str:
+        return self._login_dsn("app_login", database)
 
-    def lifecycle_dsn(self) -> str:
-        return self._login_dsn("lifecycle_login")
+    def worker_dsn(self, database: Optional[str] = None) -> str:
+        return self._login_dsn("worker_login", database)
 
-    def _login_dsn(self, role: str) -> str:
+    def lifecycle_dsn(self, database: Optional[str] = None) -> str:
+        return self._login_dsn("lifecycle_login", database)
+
+    def create_database(self, name: str) -> None:
+        """Create an empty database on this cluster (drill targets, throwaways)."""
+        self.run_sql(f'CREATE DATABASE "{name}"', database="postgres")
+
+    def _login_dsn(self, role: str, database: Optional[str] = None) -> str:
         if self.external_dsn:
             base = self.external_dsn
             # External environments must provide app_login credentials in the DSN.
@@ -127,10 +135,16 @@ class PgEnv:
             parsed = urlparse(base)
             netloc = f"{role}@{parsed.hostname or ''}" + (f":{parsed.port}" if parsed.port else "")
             return urlunparse(parsed._replace(netloc=netloc))
-        return f"postgresql://{role}@/{self.database}?host={self.dir}"
+        return f"postgresql://{role}@/{database or self.database}?host={self.dir}"
 
-    def _psql(self, args, database: Optional[str] = None, check: bool = True) -> subprocess.CompletedProcess:
-        command = [self._bin("psql"), self.admin_dsn(database), "-v", "ON_ERROR_STOP=1", *args]
+    def _psql(
+        self,
+        args,
+        database: Optional[str] = None,
+        check: bool = True,
+        dsn: Optional[str] = None,
+    ) -> subprocess.CompletedProcess:
+        command = [self._bin("psql"), dsn or self.admin_dsn(database), "-v", "ON_ERROR_STOP=1", *args]
         result = subprocess.run(command, capture_output=True, text=True)
         if check and result.returncode != 0:
             raise RuntimeError(f"psql failed: {result.stderr[-2000:]}")
@@ -140,15 +154,26 @@ class PgEnv:
         result = self._psql(["-q", "-t", "-A", "-c", sql], database=database)
         return result.stdout
 
-    def query(self, sql: str) -> list[list[str]]:
+    def query(self, sql: str, database: Optional[str] = None) -> list[list[str]]:
         """Rows as lists of text columns (test-only inspection, owner connection)."""
-        output = self.run_sql(sql)
+        output = self.run_sql(sql, database=database)
         return [line.split("|") for line in output.splitlines() if line.strip()]
 
     def query_as(self, role: str, sql: str, database: Optional[str] = None) -> list[list[str]]:
         """Run SQL as a login role and return the rows of the last row-returning statement."""
         output = self.run_sql(sql, database=database)
         return [line.split("|") for line in output.splitlines() if line.strip()]
+
+    def query_as_role(
+        self, role: str, sql: str, database: Optional[str] = None
+    ) -> list[list[str]]:
+        """Run SQL over a real session for `role`, so grants and RLS actually apply."""
+        result = self._psql(
+            ["-q", "-t", "-A", "-c", sql],
+            database=database,
+            dsn=self._login_dsn(role, database),
+        )
+        return [line.split("|") for line in result.stdout.splitlines() if line.strip()]
 
     def apply_sql_file(self, path: Path) -> None:
         result = self._psql(["-q", "-f", str(path)], database=self.database)

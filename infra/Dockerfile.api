@@ -1,0 +1,42 @@
+# SkillBench API / worker / lifecycle image.
+#
+# One image, three commands (`uvicorn src.main:app`, `python -m src.worker.main`,
+# `python -m src.lifecycle.main`). All three run as the same unprivileged user and
+# differ only by the DSN they are given, so a worker can never borrow the API's role.
+#
+# The base must be supplied digest-pinned by the operator:
+#   docker build -f infra/Dockerfile.api \
+#     --build-arg PYTHON_BASE=python:3.12-slim@sha256:<reviewed-digest> .
+# `scripts/build_images.py` refuses to print a build command for a mutable tag.
+ARG PYTHON_BASE=python:3.12-slim
+FROM ${PYTHON_BASE}
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Fixed numeric identity: the compose profile pins `user: 10001:10001`, and a
+# read-only root filesystem means nothing may be written outside /tmp.
+RUN groupadd --gid 10001 skb \
+ && useradd --uid 10001 --gid 10001 --no-create-home --home-dir /nonexistent \
+            --shell /usr/sbin/nologin skb
+
+WORKDIR /app
+
+# Runtime-only requirements: no pytest, no pglast, no contract tooling, and
+# therefore no oracle inside the image that could certify what it ships.
+COPY requirements-runtime.txt ./
+RUN pip install --no-cache-dir --no-compile -r requirements-runtime.txt
+
+COPY src ./src
+COPY contracts ./contracts
+
+USER 10001:10001
+EXPOSE 8000
+
+# Liveness only: readiness needs the database and is a platform probe.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3).status==200 else 1)"]
+
+CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]

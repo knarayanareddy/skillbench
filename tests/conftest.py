@@ -114,6 +114,21 @@ def client_factory(app):
 
 
 @pytest.fixture()
+def lifecycle_settings(pg_env: PgEnv, settings: Settings) -> Settings:
+    """Lifecycle identity (baseline_lifecycle), never the API or owner role."""
+    return settings.model_copy(update={"DATABASE_URL": pg_env.lifecycle_dsn(), "LIFECYCLE_BATCH": 50})
+
+
+@pytest.fixture()
+async def lifecycle(lifecycle_settings: Settings):
+    from src.lifecycle.main import Lifecycle
+
+    instance = Lifecycle(lifecycle_settings)
+    yield instance
+    await instance.close()
+
+
+@pytest.fixture()
 async def client(app) -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="https://testserver") as http_client:

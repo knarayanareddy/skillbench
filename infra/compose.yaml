@@ -50,6 +50,17 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      # Readiness needs the database; the image-level HEALTHCHECK is liveness only.
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3).status==200 else 1)
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
     mem_limit: 1g
     pids_limit: 128
     restart: unless-stopped
@@ -67,6 +78,15 @@ services:
     - /tmp:size=32m,noexec,nosuid
     networks:
     - edge
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health/live', timeout=2).status==200 else 1)
+      interval: 15s
+      timeout: 3s
+      retries: 4
     mem_limit: 512m
     pids_limit: 64
   edge:
@@ -95,7 +115,11 @@ services:
     command:
     - python
     - -m
-    - apps.dispatcher
+    - src.worker.main
+    - --max-jobs
+    - "50"
+    - --idle-exit
+    - "2"
     user: 10001:10001
     read_only: true
     cap_drop:
@@ -106,6 +130,7 @@ services:
     - /tmp:size=128m,noexec,nosuid
     environment:
       DATABASE_DSN_FILE: /run/secrets/dispatcher_db_dsn
+      ARTIFACT_ROOT: /artifacts
       BASELINE_LIVE_ENABLED: 'false'
     secrets:
     - dispatcher_db_dsn
@@ -113,8 +138,65 @@ services:
     - artifacts:/artifacts
     networks:
     - data
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -m
+      - src.worker.main
+      - --check
+      interval: 60s
+      timeout: 10s
+      retries: 3
     mem_limit: 1g
     pids_limit: 128
+    restart: unless-stopped
+  lifecycle:
+    profiles:
+    - product
+    image: ${API_IMAGE:-baseline-api:UNBUILT}
+    command:
+    - python
+    - -m
+    - src.lifecycle.main
+    - --interval
+    - "300"
+    user: 10001:10001
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    tmpfs:
+    - /tmp:size=64m,noexec,nosuid
+    environment:
+      DATABASE_DSN_FILE: /run/secrets/lifecycle_db_dsn
+      ARTIFACT_ROOT: /artifacts
+      LIFECYCLE_BATCH: '200'
+      LIFECYCLE_OUTBOX_DELIVER: 'false'
+      BASELINE_LIVE_ENABLED: 'false'
+    secrets:
+    - lifecycle_db_dsn
+    volumes:
+    - artifacts:/artifacts
+    networks:
+    - data
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -m
+      - src.lifecycle.main
+      - --check
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    mem_limit: 512m
+    pids_limit: 64
+    restart: unless-stopped
 networks:
   edge: {}
   data:
@@ -131,3 +213,5 @@ secrets:
     file: ./secrets/app_db_dsn
   dispatcher_db_dsn:
     file: ./secrets/dispatcher_db_dsn
+  lifecycle_db_dsn:
+    file: ./secrets/lifecycle_db_dsn
